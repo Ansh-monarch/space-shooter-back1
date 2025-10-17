@@ -13,12 +13,17 @@ const io = socketIo(server, {
   }
 });
 
-// Serve static files (HTML, CSS, JS)
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files from client directory (FIXED PATH)
+app.use(express.static(path.join(__dirname, '../client')));
 
-// Serve the main page
+// Serve the main page (FIXED PATH)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, '../client/index.html'));
+});
+
+// API health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', players: Object.keys(game.players).length });
 });
 
 const game = new Game();
@@ -31,6 +36,10 @@ io.on('connection', (socket) => {
   
   // Send current game state to new player
   socket.emit('gameState', game.getState());
+  socket.emit('playerId', socket.id);
+  
+  // Notify other players
+  socket.broadcast.emit('playerJoined', socket.id);
   
   // Handle player movement
   socket.on('playerMove', (data) => {
@@ -44,11 +53,25 @@ io.on('connection', (socket) => {
     io.emit('gameState', game.getState());
   });
   
+  // Handle chat messages
+  socket.on('chatMessage', (message) => {
+    io.emit('chatMessage', {
+      playerId: socket.id,
+      message: message
+    });
+  });
+  
+  // Handle ping
+  socket.on('ping', () => {
+    socket.emit('pong');
+  });
+  
   // Handle disconnect
   socket.on('disconnect', () => {
     console.log('Player disconnected:', socket.id);
     game.removePlayer(socket.id);
     io.emit('gameState', game.getState());
+    io.emit('playerLeft', socket.id);
   });
 });
 
@@ -56,9 +79,10 @@ io.on('connection', (socket) => {
 setInterval(() => {
   game.update();
   io.emit('gameState', game.getState());
-}, 1000 / 60);
+}, 1000 / 60); // 60 FPS
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Space Shooter Server running on port ${PORT}`);
+  console.log(`📊 Game dimensions: ${game.gameWidth}x${game.gameHeight}`);
 });
