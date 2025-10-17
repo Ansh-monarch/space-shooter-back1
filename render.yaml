@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: multiplayer-space-shooter
+    name: space-shooter-backend
     env: node
     buildCommand: cd server && npm install
     startCommand: cd server && npm start
